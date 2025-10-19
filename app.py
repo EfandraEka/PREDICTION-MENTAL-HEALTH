@@ -43,6 +43,10 @@ col1, col2 = st.columns(2)
 with col1:
     age = st.number_input("Usia", min_value=10, max_value=100, value=25)
     gender = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
+    on_antidepressant = st.selectbox("Apakah sedang mengonsumsi antidepresan?", ["Tidak", "Ya"])
+
+with col2:
+    comorbidity_count = st.number_input("Jumlah penyakit penyerta (komorbid)", min_value=0, max_value=10, value=0)
     occupation = st.selectbox("Pekerjaan", ["Pelajar", "Mahasiswa", "Karyawan", "Pengangguran", "Lainnya"])
 
 # =========================================================
@@ -66,12 +70,8 @@ phq_questions = [
 options = {"Tidak Pernah": 0, "Jarang": 1, "Sering": 2, "Sangat Sering": 3}
 
 phq_score = 0
-responses = {}
-
 for q in phq_questions:
-    choice = st.radio(q, list(options.keys()), horizontal=True, index=1, key=q)
-    responses[q] = choice
-    phq_score += options[choice]
+    phq_score += options[st.radio(q, list(options.keys()), horizontal=True, index=1, key=q)]
 
 # =========================================================
 # 🔍 Interpretasi Skor PHQ-9
@@ -127,17 +127,30 @@ with col4:
 # 🔠 Encoding Input
 # =========================================================
 gender_encoded = 1 if gender == "Perempuan" else 0
+antidepressant_encoded = 1 if on_antidepressant == "Ya" else 0
 
 input_data = pd.DataFrame([{
     "age": age,
-    "gender": gender_encoded,
-    "occupation": occupation,
-    "phq_score": phq_score,
-    "sleep_hours": sleep_hours,
-    "exercise_freq": exercise_freq
+    "sex_Male": 1 - gender_encoded,
+    "on_antidepressant": antidepressant_encoded,
+    "comorbidity_count": comorbidity_count,
+    "phq9_score": phq_score
 }])
 
-input_data = pd.get_dummies(input_data)
+# Pastikan urutan kolom sesuai model training
+model_columns = [
+    'phq9_score',
+    'age',
+    'sex_Male',
+    'comorbidity_count',
+    'on_antidepressant'
+]
+
+for col in model_columns:
+    if col not in input_data.columns:
+        input_data[col] = 0
+
+input_data = input_data[model_columns]
 
 # =========================================================
 # 🧾 Prediksi
@@ -167,7 +180,7 @@ st.subheader("ℹ️ Tentang Aplikasi")
 st.markdown("""
 - Algoritma utama: **Naive Bayes (GaussianNB)**
 - Data latih: Dataset nasional kesehatan mental (versi praproses)
-- Fitur utama: PHQ-9 score, usia, jam tidur, kebiasaan olahraga, dan jenis kelamin
+- Fitur utama: PHQ-9 score, usia, jenis kelamin, komorbid, dan konsumsi antidepresan
 - Tujuan: Edukasi dan penelitian untuk meningkatkan kesadaran kesehatan mental
 """)
 
