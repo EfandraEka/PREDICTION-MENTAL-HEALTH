@@ -137,19 +137,20 @@ input_data = pd.DataFrame([{
     "phq9_score": phq_score
 }])
 
-# Pastikan urutan kolom sesuai model training
-model_columns = [
-    'phq9_score',
-    'age',
-    'sex_Male',
-    'comorbidity_count',
-    'on_antidepressant'
-]
+# =========================================================
+# ✅ Pastikan urutan kolom sesuai model training
+# =========================================================
+try:
+    model_columns = model.feature_names_in_
+except AttributeError:
+    model_columns = ['phq9_score', 'age', 'sex_Male', 'comorbidity_count', 'on_antidepressant']
 
+# Tambahkan kolom yang mungkin hilang
 for col in model_columns:
     if col not in input_data.columns:
         input_data[col] = 0
 
+# Urutkan sesuai urutan pelatihan model
 input_data = input_data[model_columns]
 
 # =========================================================
@@ -161,7 +162,7 @@ if st.button("🔍 Deteksi Tingkat Depresi"):
     try:
         prediction = model.predict(input_data)[0]
         result_label = le.inverse_transform([prediction])[0]
-        
+
         if "depresi" in result_label.lower():
             st.error(f"💡 Hasil Deteksi: **{result_label.upper()}** 😔")
             st.markdown("> Disarankan untuk berkonsultasi dengan profesional kesehatan mental.")
