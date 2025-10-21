@@ -1,0 +1,15 @@
+import pickle
+
+# Setelah kamu melatih model
+model = nb_model
+model_columns = X_train.columns.tolist()
+
+# Simpan model, label encoder, dan urutan kolom
+with open("model.pkl", "wb") as f:
+    pickle.dump(model, f)
+
+with open("label_encoder.pkl", "wb") as f:
+    pickle.dump(le, f)
+
+with open("model_columns.pkl", "wb") as f:
+    pickle.dump(model_columns, f)
