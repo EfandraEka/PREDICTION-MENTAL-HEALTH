@@ -1,134 +1,149 @@
-# ===============================
-# app.py
-# Mental Health Depression Detector
-# ===============================
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-import os
+from sklearn.preprocessing import LabelEncoder
 
 # =========================================================
-# 🔹 LOAD MODEL, ENCODER, DAN URUTAN KOLOM
+# ⚙️ Load Model & Encoder
 # =========================================================
 @st.cache_resource
 def load_model():
     try:
-        base_path = os.path.dirname(__file__)
-        model = pickle.load(open(os.path.join(base_path, "model.pkl"), "rb"))
-        le = pickle.load(open(os.path.join(base_path, "label_encoder.pkl"), "rb"))
-        model_columns = pickle.load(open(os.path.join(base_path, "model_columns.pkl"), "rb"))
-        return model, le, model_columns
+        model = pickle.load(open("train_model.pkl", "rb"))
+        le = pickle.load(open("label_encoder.pkl", "rb"))
+        return model, le
     except Exception as e:
-        st.error("❌ Gagal memuat model atau encoder. Pastikan file 'model.pkl', 'label_encoder.pkl', dan 'model_columns.pkl' ada di folder yang sama.")
+        st.error("❌ Gagal memuat model atau encoder. Pastikan file 'model.pkl' dan 'label_encoder.pkl' ada di folder yang sama.")
         st.stop()
 
-model, le, model_columns = load_model()
+model, le = load_model()
 
 # =========================================================
-# 🧠 KONFIGURASI HALAMAN
+# 🧠 Judul & Deskripsi Aplikasi
 # =========================================================
-st.set_page_config(page_title="Mental Health Depression Detector", layout="centered")
+st.set_page_config(page_title="Mental Health Detector", layout="centered")
 st.title("🧠 Mental Health Depression Detector")
-
 st.markdown("""
-Aplikasi ini menggunakan model **Naive Bayes (GaussianNB)** untuk mendeteksi kemungkinan tingkat **depresi**  
-berdasarkan data kesehatan mental dan hasil kuisioner **PHQ-9**.
+Aplikasi ini menggunakan model *Machine Learning (Naive Bayes)* untuk memprediksi kemungkinan seseorang mengalami **depresi**  
+berdasarkan data kesehatan mental.  
+
+_Model ini dilatih menggunakan dataset nasional kesehatan mental._
 """)
 
 st.divider()
 
 # =========================================================
-# INPUT DATA USER
+# Input Data Responden
 # =========================================================
 st.subheader("Masukkan Data Responden")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    age = st.number_input("Usia (tahun)", min_value=10, max_value=100, value=25)
+    age = st.number_input("Usia", min_value=10, max_value=100, value=25)
     gender = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
-    comorbidity_count = st.slider("Jumlah Penyakit Penyerta (komorbid)", 0, 5, 0)
+    occupation = st.selectbox("Pekerjaan", ["Pelajar", "Mahasiswa", "Karyawan", "Pengangguran", "Lainnya"])
 
 with col2:
-    on_antidepressant = st.selectbox("Apakah Mengonsumsi Antidepresan?", ["Tidak", "Ya"])
-    st.markdown("### 🧩 Kuisioner PHQ-9 (Tiga Pertanyaan Ringkas)")
-    q1 = st.selectbox("1️⃣ Apakah Anda sering merasa sedih, murung, atau putus asa?", ["Tidak pernah", "Jarang", "Sering"])
-    q2 = st.selectbox("2️⃣ Apakah Anda kehilangan minat atau kesenangan dalam aktivitas sehari-hari?", ["Tidak pernah", "Jarang", "Sering"])
-    q3 = st.selectbox("3️⃣ Apakah Anda mengalami kesulitan tidur atau tidur terlalu lama?", ["Tidak pernah", "Jarang", "Sering"])
+    st.markdown("### Penilaian Gejala Depresi (PHQ-9)")
+    st.write("""
+    Jawab berdasarkan kondisi Anda selama **2 minggu terakhir.**  
+    PHQ-9 digunakan untuk menilai tingkat keparahan gejala depresi.
+    """)
+    
+    phq_score = st.slider(
+        "Seberapa sering Anda merasa sedih, kehilangan minat, atau sulit melakukan aktivitas?",
+        min_value=0, max_value=27, value=10,
+        help="0 = Tidak Pernah, 27 = Sangat Sering Mengalami Gejala Depresi"
+    )
 
-# =========================================================
-#  HITUNG SKOR PHQ-9 SEDERHANA
-# =========================================================
-phq_map = {"Tidak pernah": 0, "Jarang": 1, "Sering": 2}
-phq_score = phq_map[q1] + phq_map[q2] + phq_map[q3]
+    # Interpretasi otomatis PHQ-9
+    if phq_score <= 4:
+        level = "Tidak ada / Minimal"
+        color = "🟢"
+    elif phq_score <= 9:
+        level = "Depresi ringan"
+        color = "🟡"
+    elif phq_score <= 14:
+        level = "Depresi sedang"
+        color = "🟠"
+    elif phq_score <= 19:
+        level = "Depresi cukup berat"
+        color = "🔴"
+    else:
+        level = "Depresi berat"
+        color = "⚫"
 
-st.markdown(f"** Skor PHQ-9 Anda:** `{phq_score}` (0–6)")
+    color_map = {
+        "🟢": "#b7efc5",
+        "🟡": "#fff6a5",
+        "🟠": "#ffd6a5",
+        "🔴": "#ffadad",
+        "⚫": "#c0c0c0"
+    }
+
+    st.markdown(
+        f"""
+        <div style='background-color:{color_map[color]}; padding:10px; border-radius:10px; text-align:center;'>
+            <strong>Skor PHQ-9 Anda: {phq_score}</strong><br>
+            {color} <b>{level}</b>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    sleep_hours = st.slider("Rata-rata Jam Tidur per Hari", 0, 12, 7)
+    exercise_freq = st.slider("Frekuensi Olahraga per Minggu", 0, 7, 2)
 
 st.divider()
 
 # =========================================================
-# SIAPKAN DATA UNTUK PREDIKSI
+# Encoding Input Data
 # =========================================================
-sex_Male = 1 if gender == "Laki-laki" else 0
-on_antidepressant_val = 1 if on_antidepressant == "Ya" else 0
+gender_encoded = 1 if gender == "Perempuan" else 0
 
-# Buat DataFrame input sesuai fitur training
 input_data = pd.DataFrame([{
-    'phq9_score': phq_score,
-    'age': age,
-    'sex_Male': sex_Male,
-    'comorbidity_count': comorbidity_count,
-    'on_antidepressant': on_antidepressant_val
+    "age": age,
+    "gender": gender_encoded,
+    "occupation": occupation,
+    "phq_score": phq_score,
+    "sleep_hours": sleep_hours,
+    "exercise_freq": exercise_freq
 }])
 
-# Pastikan urutan kolom sama seperti saat training
-try:
-    input_data = input_data.reindex(columns=model_columns, fill_value=0)
-except Exception as e:
-    st.error(f"Gagal menyesuaikan urutan kolom: {e}")
-    st.stop()
-
-# Debugging (bisa dihapus nanti)
-# st.write("Urutan kolom model:", model_columns)
-# st.write("Urutan kolom input:", list(input_data.columns))
+input_data = pd.get_dummies(input_data)
 
 # =========================================================
-# PROSES PREDIKSI
+# Prediksi Depresi
 # =========================================================
-st.subheader("Hasil Deteksi Depresi")
+st.subheader("Hasil Prediksi")
 
 if st.button("Deteksi Tingkat Depresi"):
     try:
         prediction = model.predict(input_data)[0]
         result_label = le.inverse_transform([prediction])[0]
-
-        st.write("---")
-
-        if "berat" in result_label.lower():
-            st.error(f"Hasil Deteksi: **{result_label.upper()}**")
-            st.markdown("> Disarankan segera berkonsultasi dengan profesional kesehatan mental.")
-        elif "sedang" in result_label.lower():
-            st.warning(f"Hasil Deteksi: **{result_label.upper()}**")
-            st.markdown("> Kamu menunjukkan gejala sedang, coba jaga pola tidur, olahraga, dan aktivitas sosial.")
+        
+        if "depresi" in result_label.lower():
+            st.error(f"Hasil Deteksi: **{result_label.upper()}** 😔")
+            st.markdown("> Disarankan untuk berkonsultasi dengan profesional kesehatan mental.")
         else:
-            st.success(f"Hasil Deteksi: **{result_label.upper()}**")
-            st.markdown("> Kesehatan mentalmu tampak baik! Pertahankan gaya hidup seimbang.")
+            st.success(f"Hasil Deteksi: **{result_label.upper()}** 😄")
+            st.markdown("> Tetap jaga kesehatan mental dan fisikmu!")
     except Exception as e:
         st.error(f"Terjadi kesalahan dalam proses prediksi: {e}")
 
 st.divider()
 
 # =========================================================
-# INFO TAMBAHAN
+# Informasi Tambahan
 # =========================================================
-st.subheader("Tentang Aplikasi")
+st.subheader(" Tentang Aplikasi")
 st.markdown("""
-- Model: **Naive Bayes (GaussianNB)**
-- Fitur utama: PHQ-9, usia, jenis kelamin, komorbiditas, konsumsi antidepresan  
-- Dataset: Nasional (versi praproses)
-- Tujuan: Edukasi & penelitian non-medis
+- Algoritma utama: **Naive Bayes (GaussianNB)**
+- Data latih: Dataset nasional kesehatan mental (versi praproses)
+- Fitur utama: PHQ-9 score, usia, jam tidur, kebiasaan olahraga, dan jenis kelamin
+- Tujuan: Edukasi dan penelitian untuk kesadaran kesehatan mental
 """)
 
 st.caption("© 2025 Mental Health Detection App — powered by Streamlit & scikit-learn")
